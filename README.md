@@ -1,5 +1,5 @@
 # Legend
-OpenSSH &lt;= 6.6 SFTP (sftp-server) misconfiguration exploit
+OpenSSH &lt;= 6.6 SFTP (sftp-server) misconfiguration exploit for 32/64 bits Linux
 
 
 
