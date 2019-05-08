@@ -1,3 +1,2 @@
-*.py linguist-language=Python
-*.md linguist-language=Assembly
+legend.py linguist-language=Assembly
 
