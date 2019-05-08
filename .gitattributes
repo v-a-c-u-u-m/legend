@@ -1,1 +1,3 @@
-*.* linguist-language=Python,Java
+*.py linguist-language=Python
+*.* linguist-language=Assembly
+
